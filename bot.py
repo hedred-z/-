@@ -1,5 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ConversationHandler
 import logging
 
 # Вставьте ваш токен
@@ -21,7 +21,7 @@ course_data = {
 user_data = {}
 
 # Состояния
-SELECT_DAY, ADD_VIDEOS = range(2)
+SELECT_DAY, ADD_VIDEOS, EDIT_VIDEOS = range(3)
 
 # ID администратора
 admin_id = 954053674  # Заменено на ваш ID
@@ -72,7 +72,10 @@ def main_menu(update):
 # Админ-панель
 def admin_panel(update, context):
     if update.message.from_user.id == admin_id:
-        keyboard = [[InlineKeyboardButton("Добавить видео", callback_data='add_video')]]
+        keyboard = [
+            [InlineKeyboardButton("Добавить видео", callback_data='add_video')],
+            [InlineKeyboardButton("Изменить видео", callback_data='edit_video')]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text("Добро пожаловать в админ-панель!", reply_markup=reply_markup)
     else:
@@ -92,6 +95,38 @@ def add_video(update, context):
     else:
         update.message.reply_text("Вы не администратор!")
 
+# Редактирование видео
+def edit_video(update, context):
+    if update.message.from_user.id == admin_id:
+        keyboard = []
+        for day in range(1, 46):
+            keyboard.append([InlineKeyboardButton(f"День {day}", callback_data=f"edit_{day}")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text("Выберите день для редактирования:", reply_markup=reply_markup)
+    else:
+        update.message.reply_text("Вы не администратор!")
+
+# Изменение видео для дня
+def edit_day_video(update, context):
+    if update.message.from_user.id == admin_id:
+        day = int(update.callback_query.data.split('_')[1])
+        videos = course_data.get(day, [])
+        update.callback_query.edit_message_text(f"Текущие видео для дня {day}: {', '.join(videos)}. Введите новые ссылки через пробел.")
+        return EDIT_VIDEOS
+    else:
+        update.message.reply_text("Вы не администратор!")
+
+# Обработка новых ссылок для видео
+def handle_new_video_links(update, context):
+    if update.message.from_user.id == admin_id:
+        day = int(update.callback_query.data.split('_')[1])
+        new_links = update.message.text.split()
+        course_data[day] = new_links
+        update.message.reply_text(f"Видео для дня {day} были изменены.")
+        return ConversationHandler.END
+    else:
+        update.message.reply_text("Вы не администратор!")
+
 # Основные команды
 def main():
     updater = Updater(TOKEN, use_context=True)
@@ -99,14 +134,13 @@ def main():
 
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("admin", admin_panel))
-    dp.add_handler(MessageHandler(Filters.text, add_video))
-
-    # Конверсация для выбора дня и добавления видео
+    dp.add_handler(MessageHandler(filters.TEXT, add_video))
+    
+    # Диалог для изменения видео
     conversation_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[CallbackQueryHandler(edit_day_video, pattern='^edit_')],
         states={
-            SELECT_DAY: [CallbackQueryHandler(main_menu)],
-            ADD_VIDEOS: [MessageHandler(Filters.text, add_video)],
+            EDIT_VIDEOS: [MessageHandler(filters.TEXT, handle_new_video_links)],
         },
         fallbacks=[],
     )
@@ -118,4 +152,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
