@@ -133,8 +133,8 @@ async def main():
     application.add_handler(MessageHandler(filters.Regex('^Редактировать ссылки$'), add_links))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, save_links))
 
-    # Replace asyncio.run with application.run_polling
-    await application.run_polling()
+    await application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
-    main()
+    import asyncio
+    asyncio.run(main())
