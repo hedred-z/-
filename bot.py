@@ -1,6 +1,7 @@
 import logging
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.constants import ParseMode
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from datetime import timedelta
 
 API_TOKEN = '7230758782:AAHUvUhpfD4k2XfFInXY7blg686IZ6OLSD8'
 
@@ -132,7 +133,7 @@ def save_links(update: Update, context: CallbackContext):
 
 # Главная функция
 def main():
-    updater = Updater(API_TOKEN, use_context=True)
+    updater = Updater(API_TOKEN)
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler('start', start))
@@ -148,4 +149,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-  
+              
