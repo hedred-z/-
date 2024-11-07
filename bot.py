@@ -1,10 +1,10 @@
-import nest_asyncio
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ConversationHandler
 import logging
+import asyncio
+import nest_asyncio
 
-# Применяем nest_asyncio
+# Подключаем nest_asyncio для работы с асинхронностью на GitHub Actions
 nest_asyncio.apply()
 
 TOKEN = '7510854780:AAHHsrY_dg09A569k94C1rYWsrgdBEBeApY'
@@ -23,6 +23,7 @@ admin_id = 954053674
 async def start(update, context):
     user_id = update.message.from_user.id
     user_data[user_id] = {'day': 1, 'videos_watched': 0}
+    logger.info(f"User {user_id} started the bot.")
     await update.message.reply_text('Welcome to the course! Press "Watched ✅" to start.')
     await send_video(update, user_id)
 
@@ -33,6 +34,7 @@ async def send_video(update, user_id):
         video_link = videos[user_data[user_id]['videos_watched']]
         keyboard = [[InlineKeyboardButton("Watched ✅", callback_data='watched')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        logger.info(f"Sending video for day {day} to user {user_id}.")
         await update.message.reply_text(f"Day {day}: Watch the video here: {video_link}", reply_markup=reply_markup)
     else:
         await update.message.reply_text(f"You've completed the course for day {day}!")
@@ -42,6 +44,7 @@ async def button(update, context):
     query = update.callback_query
     user_id = query.from_user.id
     await query.answer()
+    logger.info(f"User {user_id} clicked on the button.")
     if query.data == 'watched':
         user_data[user_id]['videos_watched'] += 1
         day = user_data[user_id]['day']
@@ -61,6 +64,7 @@ async def main_menu(update):
 
 async def admin_panel(update, context):
     if update.message.from_user.id == admin_id:
+        logger.info(f"Admin {update.message.from_user.id} accessed the admin panel.")
         keyboard = [
             [InlineKeyboardButton("Add video", callback_data='add_video')],
             [InlineKeyboardButton("Edit video", callback_data='edit_video')]
@@ -80,6 +84,7 @@ async def add_video(update, context):
                 course_data[day] = []
             course_data[day].append(video_link)
         await update.message.reply_text(f"Videos added for day {day}.")
+        logger.info(f"Videos added for day {day}.")
     else:
         await update.message.reply_text("You are not an admin!")
 
@@ -130,7 +135,9 @@ async def main():
     )
     application.add_handler(conversation_handler)
 
+    logger.info("Bot started.")
     await application.run_polling()
 
 if __name__ == '__main__':
-    main()  # Исправлено с asyncio.run(main())
+    asyncio.run(main())
+    
