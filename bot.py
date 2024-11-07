@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext
 from telegram.constants import ParseMode
 from datetime import timedelta
 
@@ -128,12 +128,12 @@ def main():
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler('start', start))
-    dp.add_handler(MessageHandler(Filters.regex('^День \d+$'), day_progress))
-    dp.add_handler(MessageHandler(Filters.regex('^Готово$'), finish_day))
+    dp.add_handler(MessageHandler(filters.regex('^День \d+$'), day_progress))
+    dp.add_handler(MessageHandler(filters.regex('^Готово$'), finish_day))
     dp.add_handler(CommandHandler('admin', admin_panel))
-    dp.add_handler(MessageHandler(Filters.regex('^Добавить ссылки для дня$'), add_links))
-    dp.add_handler(MessageHandler(Filters.regex('^Редактировать ссылки$'), add_links))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, save_links))
+    dp.add_handler(MessageHandler(filters.regex('^Добавить ссылки для дня$'), add_links))
+    dp.add_handler(MessageHandler(filters.regex('^Редактировать ссылки$'), add_links))
+    dp.add_handler(MessageHandler(filters.text & ~filters.command, save_links))
 
     updater.start_polling()
     updater.idle()
