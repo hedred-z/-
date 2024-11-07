@@ -18,7 +18,7 @@ async def start(update: Update, context: CallbackContext):
         user_data[user_id] = {'day': 1, 'progress': 0}
     user = update.message.from_user
     welcome_message = f"Привет, {user.first_name}! Спасибо, что выбрали нас. С нами вы сможете изучить базовую криптовалюту.\n\nЧтобы начать изучать, нажмите на кнопку 'День 1'."
-    keyboard = [[("День 1")]]
+    keyboard = [["День 1"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
     await update.message.reply_text(welcome_message, reply_markup=reply_markup)
     return START
@@ -37,7 +37,7 @@ async def day_progress(update: Update, context: CallbackContext):
         else:
             for link in admin_links:
                 await update.message.reply_text(f"Ссылка для дня {current_day}: {link}")
-        keyboard = [[("Готово")]]
+        keyboard = [["Готово"]]
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
         await update.message.reply_text("Нажмите 'Готово', когда завершите просмотр.", reply_markup=reply_markup)
         user_data[user_id]['progress'] = 1
@@ -56,7 +56,7 @@ async def finish_day(update: Update, context: CallbackContext):
         return IN_PROGRESS
     user_data[user_id]['day'] += 1
     await update.message.reply_text(f"Поздравляем! Вы завершили день {current_day}. Переходите к следующему!")
-    keyboard = [[(f"День {user_data[user_id]['day']}")]]
+    keyboard = [[f"День {user_data[user_id]['day']}"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
     await update.message.reply_text("Нажмите, чтобы начать следующий день.", reply_markup=reply_markup)
     return FINISHED
@@ -107,7 +107,7 @@ async def save_links(update: Update, context: CallbackContext):
 async def main():
     application = Application.builder().token(API_TOKEN).build()
     application.add_handler(CommandHandler('start', start))
-    application.add_handler(MessageHandler(filters.Regex('^День \d+$'), day_progress))
+    application.add_handler(MessageHandler(filters.Regex('^День \\d+$'), day_progress))
     application.add_handler(MessageHandler(filters.Regex('^Готово$'), finish_day))
     application.add_handler(CommandHandler('admin', admin_panel))
     application.add_handler(MessageHandler(filters.Regex('^Добавить ссылки для дня$'), add_links))
