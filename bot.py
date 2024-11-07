@@ -1,134 +1,109 @@
 import logging
-import re
-import asyncio
-from datetime import datetime, timedelta
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, CallbackContext
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, ConversationHandler
+from telegram.constants import ParseMode
 
-# Импорт данных из конфигурационного файла
-from config import API_TOKEN, CHANNEL_ID
+from config import API_TOKEN
 
-# Настройка логирования
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+# Идентификатор администратора
+ADMIN_ID = 954053674
+
+# Хранилище для ссылок (можно заменить на базу данных)
+video_links_by_day = {}
+
+# Состояния для ConversationHandler
+CHOOSING_DAY, ADDING_VIDEOS, ENTERING_LINKS = range(3)
+
+# Логирование
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def start(update: Update, context: CallbackContext) -> None:
-    user = update.message.from_user
-    welcome_text = f"Здравствуйте, {user.first_name}! Рады, что вы хотите изучать криптовалюту с нами. Нажмите на кнопку, чтобы приступить к изучению первого дня."
-    
-    # Клавиатура с кнопкой для начала изучения
-    keyboard = [
-        ["Изучить 1-й день"]
-    ]
-    
-    # Преобразуем в объект ReplyKeyboardMarkup
-    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-
-    # Отправляем сообщение с клавиатурой
-    await update.message.reply_text(welcome_text, reply_markup=reply_markup)
-
-async def get_course_day(day: int, context: CallbackContext) -> list:
-    # Список для хранения всех ссылок на видео
-    video_links = []
-    
-    # Получаем сообщения из канала
-    async for message in context.bot.get_chat_messages(CHANNEL_ID):
-        if f"День {day}:" in message.text:
-            # Ищем все ссылки в сообщении
-            links = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.text)
-            if links:
-                video_links.extend(links)
-    
-    return video_links
-
-async def learn_day(update: Update, context: CallbackContext) -> None:
-    day = 1  # Вы можете изменить этот номер дня, например, на 2, 3 и т.д.
-    
-    # Получаем ссылки на видео для указанного дня
-    video_links = await get_course_day(day, context)
-    
-    if video_links:
-        # Отправляем каждое видео по очереди
-        for link in video_links:
-            await update.message.reply_text(f"Ссылка на видео: {link}")
-        
-        # Создаем клавиатуру с кнопкой "Я посмотрел"
-        keyboard = [
-            ["✅ Я посмотрел"]
-        ]
-        
-        # Преобразуем в объект ReplyKeyboardMarkup
-        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-        
-        # Отправляем сообщение с новой кнопкой
-        await update.message.reply_text("Пожалуйста, подождите 3 минуты перед переходом к следующему видео...", reply_markup=reply_markup)
+    user_id = update.message.from_user.id
+    if user_id == ADMIN_ID:
+        # Приветственное сообщение для администратора с доступом к панели управления
+        await update.message.reply_text("Привет, Админ! Вы можете открыть панель управления, чтобы добавить видео для дней.")
+        await admin_panel(update, context)
     else:
-        # Если контент не найден, отправляем сообщение
-        await update.message.reply_text("Мы не нашли видео для данного дня. Пожалуйста, изучите канал для получения новых материалов.")
+        # Приветственное сообщение для пользователя
+        await update.message.reply_text("Добро пожаловать! Чтобы начать обучение, выберите первый день.")
+        await learn_day(update, context, day=1)
+
+async def admin_panel(update: Update, context: CallbackContext) -> int:
+    # Показ панели администратора с выбором дня
+    days_keyboard = [[str(day)] for day in range(1, 46)]
+    reply_markup = ReplyKeyboardMarkup(days_keyboard, one_time_keyboard=True, resize_keyboard=True)
+    await update.message.reply_text("Выберите день, для которого хотите добавить видео:", reply_markup=reply_markup)
+    return CHOOSING_DAY
+
+async def choose_day(update: Update, context: CallbackContext) -> int:
+    # Получаем выбранный день и сохраняем его
+    context.user_data['chosen_day'] = int(update.message.text)
+    await update.message.reply_text("Сколько видео вы хотите добавить для этого дня?")
+    return ADDING_VIDEOS
+
+async def add_videos(update: Update, context: CallbackContext) -> int:
+    # Получаем количество видео и начинаем добавление ссылок
+    num_videos = int(update.message.text)
+    context.user_data['num_videos'] = num_videos
+    context.user_data['video_links'] = []
+    await update.message.reply_text("Введите ссылку на первое видео:")
+    return ENTERING_LINKS
+
+async def enter_links(update: Update, context: CallbackContext) -> int:
+    # Получаем ссылку на видео и сохраняем её
+    video_link = update.message.text
+    context.user_data['video_links'].append(video_link)
+
+    # Проверяем, добавлены ли все видео
+    if len(context.user_data['video_links']) < context.user_data['num_videos']:
+        # Запрос следующей ссылки, если не все добавлены
+        await update.message.reply_text(f"Введите ссылку на видео {len(context.user_data['video_links']) + 1}:")
+        return ENTERING_LINKS
+    else:
+        # Сохранение видео для выбранного дня
+        day = context.user_data['chosen_day']
+        video_links_by_day[day] = context.user_data['video_links']
+        await update.message.reply_text(f"Все ссылки для дня {day} успешно сохранены!")
+        return admin_panel(update, context)
+
+async def learn_day(update: Update, context: CallbackContext, day: int) -> None:
+    # Проверка наличия видео на выбранный день
+    if day in video_links_by_day:
+        await update.message.reply_text(f"День {day} - Начинаем просмотр видео!")
+        
+        # Отправляем каждое видео пользователю по очереди
+        for index, link in enumerate(video_links_by_day[day], start=1):
+            await update.message.reply_text(f"Видео {index}: {link}")
+        
+        await update.message.reply_text("После просмотра всех видео нажмите '✅ Я посмотрел', чтобы завершить этот день.")
+    else:
+        await update.message.reply_text("Видео для этого дня пока не добавлено.")
 
 async def watched(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Поздравляем! Вы завершили первый день обучения.")
+    await update.message.reply_text("Поздравляем! Вы завершили день. Вы можете перейти к следующему дню.")
 
-async def main_menu(update: Update, context: CallbackContext) -> None:
-    # Главное меню, которое появляется после завершения первого дня
-    keyboard = [
-        ["Изучить 2-й день", "Настроить уведомления"],
-        ["Рейтинг", "Об авторе"]
-    ]
-    
-    # Преобразуем в объект ReplyKeyboardMarkup
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    
-    # Отправляем сообщение с клавиатурой
-    await update.message.reply_text("Вы завершили первый день! Теперь вы можете начать второй день или настроить уведомления.", reply_markup=reply_markup)
-
-async def notification_settings(update: Update, context: CallbackContext) -> None:
-    # Отправляем список кнопок для настройки уведомлений
-    keyboard = [
-        ["Уведомление о новом дне", "Уведомление о невыполненном дне"]
-    ]
-    
-    # Преобразуем в объект ReplyKeyboardMarkup
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    
-    # Отправляем сообщение с клавиатурой
-    await update.message.reply_text("Выберите, какие уведомления вы хотите получать:", reply_markup=reply_markup)
-
-async def rating(update: Update, context: CallbackContext) -> None:
-    # Рейтинг пользователей
-    # Пример данных рейтинга
-    ranking = [
-        "1. Ник1 : 20 дней",
-        "2. Ник2 : 18 дней",
-        "3. Ник3 : 15 дней"
-    ]
-    
-    # Отправляем рейтинг
-    await update.message.reply_text("\n".join(ranking))
-
-async def author_info(update: Update, context: CallbackContext) -> None:
-    # Информация о курсе и авторе
-    course_info = """
-    Добро пожаловать на курс по криптовалютам! Этот курс разработан для того, чтобы помочь вам разобраться в мире криптовалют и блокчейн технологий.
-    Весь курс состоит из 45 дней, и каждый день вы будете изучать новые аспекты криптовалют и их применения.
-    """
-    await update.message.reply_text(course_info)
-
-def main():
+def main() -> None:
     application = Application.builder().token(API_TOKEN).build()
-    
-    # Обработчики команд
+
+    # Определяем ConversationHandler для панели администратора
+    admin_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("admin", admin_panel)],
+        states={
+            CHOOSING_DAY: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_day)],
+            ADDING_VIDEOS: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_videos)],
+            ENTERING_LINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_links)],
+        },
+        fallbacks=[CommandHandler("cancel", start)],
+    )
+
+    # Добавляем обработчики
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.Regex("Изучить 1-й день"), learn_day))
+    application.add_handler(admin_conv_handler)
     application.add_handler(MessageHandler(filters.Regex("✅ Я посмотрел"), watched))
-    application.add_handler(MessageHandler(filters.Regex("Настроить уведомления"), notification_settings))
-    application.add_handler(MessageHandler(filters.Regex("Рейтинг"), rating))
-    application.add_handler(MessageHandler(filters.Regex("Об авторе"), author_info))
-    
+
     # Запуск бота
     application.run_polling()
 
 if __name__ == '__main__':
     main()
-  
