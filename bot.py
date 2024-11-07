@@ -125,4 +125,5 @@ async def main():
 
 if __name__ == '__main__':
     import asyncio
-    asyncio.get_event_loop().run_until_complete(main())  # Вместо asyncio.run() используем get_event_loop().run_until_complete()
+    # Просто вызовем run_polling, без дополнительных оберток
+    asyncio.run(main())  # Запуск бота без необходимости создавать собственный цикл событий
