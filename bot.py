@@ -1,7 +1,7 @@
 import logging
+from datetime import datetime, timedelta, time
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, ConversationHandler
-from telegram.constants import ParseMode
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
 from config import API_TOKEN
 
@@ -11,99 +11,96 @@ ADMIN_ID = 954053674
 # Хранилище для ссылок (можно заменить на базу данных)
 video_links_by_day = {}
 
-# Состояния для ConversationHandler
-CHOOSING_DAY, ADDING_VIDEOS, ENTERING_LINKS = range(3)
+# Состояние пользователя: последний пройденный день и время доступа к следующему дню
+user_progress = {}
 
 # Логирование
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Функция для отображения клавиатуры с учетом роли пользователя
+def get_keyboard(user_id):
+    if user_id == ADMIN_ID:
+        # Клавиатура с кнопкой "Админ-панель" только для администратора
+        return ReplyKeyboardMarkup(
+            [["Начать день"], ["Админ-панель"]], 
+            resize_keyboard=True
+        )
+    return ReplyKeyboardMarkup([["Начать день"]], resize_keyboard=True)
+
 async def start(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    if user_id == ADMIN_ID:
-        # Приветственное сообщение для администратора с доступом к панели управления
-        await update.message.reply_text("Привет, Админ! Вы можете открыть панель управления, чтобы добавить видео для дней.")
-        await admin_panel(update, context)
+    await update.message.reply_text(
+        "Добро пожаловать! Нажмите кнопку 'Начать день', чтобы приступить к изучению.",
+        reply_markup=get_keyboard(user_id)
+    )
+
+async def admin_panel(update: Update, context: CallbackContext) -> None:
+    if update.message.from_user.id == ADMIN_ID:
+        # Панель администратора с выбором дня
+        days_keyboard = [[str(day)] for day in range(1, 46)]
+        reply_markup = ReplyKeyboardMarkup(days_keyboard, one_time_keyboard=True, resize_keyboard=True)
+        await update.message.reply_text("Выберите день для добавления видео:", reply_markup=reply_markup)
     else:
-        # Приветственное сообщение для пользователя
-        await update.message.reply_text("Добро пожаловать! Чтобы начать обучение, выберите первый день.")
-        await learn_day(update, context, day=1)
+        await update.message.reply_text("У вас нет доступа к этой функции.")
 
-async def admin_panel(update: Update, context: CallbackContext) -> int:
-    # Показ панели администратора с выбором дня
-    days_keyboard = [[str(day)] for day in range(1, 46)]
-    reply_markup = ReplyKeyboardMarkup(days_keyboard, one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text("Выберите день, для которого хотите добавить видео:", reply_markup=reply_markup)
-    return CHOOSING_DAY
+async def add_video_links(update: Update, context: CallbackContext) -> None:
+    # Логика добавления ссылок на видео для админа
+    # ...
 
-async def choose_day(update: Update, context: CallbackContext) -> int:
-    # Получаем выбранный день и сохраняем его
-    context.user_data['chosen_day'] = int(update.message.text)
-    await update.message.reply_text("Сколько видео вы хотите добавить для этого дня?")
-    return ADDING_VIDEOS
+async def start_day(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    current_time = datetime.now()
+    
+    # Проверка прогресса пользователя и времени доступа
+    if user_id in user_progress:
+        last_day, next_available_time = user_progress[user_id]
+        if current_time < next_available_time:
+            remaining_time = next_available_time - current_time
+            hours, remainder = divmod(remaining_time.seconds, 3600)
+            minutes = remainder // 60
+            await update.message.reply_text(f"Следующий день будет доступен через {hours} часов и {minutes} минут.")
+            return
 
-async def add_videos(update: Update, context: CallbackContext) -> int:
-    # Получаем количество видео и начинаем добавление ссылок
-    num_videos = int(update.message.text)
-    context.user_data['num_videos'] = num_videos
-    context.user_data['video_links'] = []
-    await update.message.reply_text("Введите ссылку на первое видео:")
-    return ENTERING_LINKS
-
-async def enter_links(update: Update, context: CallbackContext) -> int:
-    # Получаем ссылку на видео и сохраняем её
-    video_link = update.message.text
-    context.user_data['video_links'].append(video_link)
-
-    # Проверяем, добавлены ли все видео
-    if len(context.user_data['video_links']) < context.user_data['num_videos']:
-        # Запрос следующей ссылки, если не все добавлены
-        await update.message.reply_text(f"Введите ссылку на видео {len(context.user_data['video_links']) + 1}:")
-        return ENTERING_LINKS
-    else:
-        # Сохранение видео для выбранного дня
-        day = context.user_data['chosen_day']
-        video_links_by_day[day] = context.user_data['video_links']
-        await update.message.reply_text(f"Все ссылки для дня {day} успешно сохранены!")
-        return admin_panel(update, context)
-
-async def learn_day(update: Update, context: CallbackContext, day: int) -> None:
-    # Проверка наличия видео на выбранный день
+    # Проверка, что день доступен не раньше 7 утра
+    if current_time.time() < time(7, 0):
+        time_until_access = datetime.combine(current_time.date(), time(7, 0)) - current_time
+        await update.message.reply_text(f"День будет доступен через {time_until_access.seconds // 3600} часов и {time_until_access.seconds % 3600 // 60} минут.")
+        return
+    
+    # Отправляем видео для текущего дня
+    day = user_progress.get(user_id, (0, None))[0] + 1
     if day in video_links_by_day:
         await update.message.reply_text(f"День {day} - Начинаем просмотр видео!")
-        
-        # Отправляем каждое видео пользователю по очереди
         for index, link in enumerate(video_links_by_day[day], start=1):
             await update.message.reply_text(f"Видео {index}: {link}")
         
         await update.message.reply_text("После просмотра всех видео нажмите '✅ Я посмотрел', чтобы завершить этот день.")
     else:
         await update.message.reply_text("Видео для этого дня пока не добавлено.")
+    
+    # Обновляем прогресс пользователя
+    next_available_time = current_time + timedelta(days=1)
+    user_progress[user_id] = (day, next_available_time)
 
 async def watched(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Поздравляем! Вы завершили день. Вы можете перейти к следующему дню.")
+    user_id = update.message.from_user.id
+    last_day, _ = user_progress.get(user_id, (0, datetime.now()))
+    await update.message.reply_text(f"Поздравляем! Вы завершили день {last_day}. Завтра будет доступен следующий день.")
+    await start_day(update, context)
 
 def main() -> None:
     application = Application.builder().token(API_TOKEN).build()
 
-    # Определяем ConversationHandler для панели администратора
-    admin_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("admin", admin_panel)],
-        states={
-            CHOOSING_DAY: [MessageHandler(filters.TEXT & ~filters.COMMAND, choose_day)],
-            ADDING_VIDEOS: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_videos)],
-            ENTERING_LINKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_links)],
-        },
-        fallbacks=[CommandHandler("cancel", start)],
-    )
-
-    # Добавляем обработчики
+    # Обработчики команд
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(admin_conv_handler)
+    application.add_handler(MessageHandler(filters.Regex("Админ-панель"), admin_panel))
+    application.add_handler(MessageHandler(filters.Regex("Начать день"), start_day))
     application.add_handler(MessageHandler(filters.Regex("✅ Я посмотрел"), watched))
-
+    
     # Запуск бота
     application.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
+    
