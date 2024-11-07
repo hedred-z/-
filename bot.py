@@ -14,7 +14,6 @@ SELECT_DAY, ADD_VIDEOS = range(2)
 
 # Данные пользователей
 user_data = {}
-admin_id = 954053674  # ID администратора
 
 # Для хранения информации о днях и видео
 course_data = {day: [] for day in range(1, 46)}  # 45 дней, список видео для каждого дня
@@ -25,11 +24,15 @@ moscow_tz = pytz.timezone('Europe/Moscow')
 # Стартовое сообщение
 async def start(update: Update, context):
     user_id = update.message.from_user.id
+    logger.info(f"User {user_id} has started the bot.")  # Логируем информацию о старте
 
     # Приветственное сообщение
     welcome_message = "Здравствуйте, рады, что вы хотите изучать криптовалюту с нами."
 
     # День 1 доступен сразу
+    if not course_data[1]:
+        course_data[1].append("https://example.com/video1")  # Пример ссылки на видео
+
     await update.message.reply_text(f"День 1: Введение в криптовалюты\nСсылка на видео: {course_data[1][0]}")
 
     # Кнопка "Просмотрено"
@@ -43,8 +46,10 @@ async def start(update: Update, context):
 # Отметить видео как просмотренное
 async def mark_as_viewed(update: Update, context):
     user_id = update.message.from_user.id
+    logger.info(f"User {user_id} marked video as viewed.")  # Логируем
 
     if user_id not in user_data:
+        logger.warning(f"User {user_id} not in user_data.")  # Логируем проблему
         return SELECT_DAY
 
     # Проверка, что видео еще не было просмотрено
@@ -67,8 +72,7 @@ async def mark_as_viewed(update: Update, context):
 # Админ панель
 async def admin_panel(update: Update, context):
     user_id = update.message.from_user.id
-
-    if user_id != admin_id:
+    if user_id != 954053674:  # ID администратора
         await update.message.reply_text("У вас нет доступа к админ панели.")
         return SELECT_DAY
 
@@ -81,8 +85,7 @@ async def admin_panel(update: Update, context):
 # Добавить видео
 async def add_videos(update: Update, context):
     user_id = update.message.from_user.id
-
-    if user_id != admin_id:
+    if user_id != 954053674:  # ID администратора
         return SELECT_DAY
 
     day_number = int(update.message.text.split()[1])  # Получаем номер дня
@@ -105,7 +108,6 @@ async def store_video_links(update: Update, context):
     return ConversationHandler.END
 
 async def main():
-    # Используем ваш токен
     application = Application.builder().token("7510854780:AAHHsrY_dg09A569k94C1rYWsrgdBEBeApY").build()
 
     # Конверсии для администратора
