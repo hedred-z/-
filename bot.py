@@ -105,7 +105,8 @@ async def store_video_links(update: Update, context):
     return ConversationHandler.END
 
 async def main():
-    application = Application.builder().token("YOUR_API_KEY").build()
+    # Используем ваш токен
+    application = Application.builder().token("7510854780:AAHHsrY_dg09A569k94C1rYWsrgdBEBeApY").build()
 
     # Конверсии для администратора
     admin_conversation = ConversationHandler(
