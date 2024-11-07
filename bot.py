@@ -14,6 +14,9 @@ video_links_by_day = {}
 # Состояние пользователя: последний пройденный день и время доступа к следующему дню
 user_progress = {}
 
+# Состояние запроса ссылок
+video_link_input = {}
+
 # Логирование
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,10 +25,7 @@ logger = logging.getLogger(__name__)
 def get_keyboard(user_id):
     if user_id == ADMIN_ID:
         # Клавиатура с кнопкой "Админ-панель" только для администратора
-        return ReplyKeyboardMarkup(
-            [["Начать день"], ["Админ-панель"]], 
-            resize_keyboard=True
-        )
+        return ReplyKeyboardMarkup([["Админ-панель"]], resize_keyboard=True)
     return ReplyKeyboardMarkup([["День 1"]], resize_keyboard=True)
 
 async def start(update: Update, context: CallbackContext) -> None:
@@ -49,19 +49,36 @@ async def ask_video_count(update: Update, context: CallbackContext) -> None:
     if update.message.from_user.id == ADMIN_ID:
         # Спросим количество видео для выбранного дня
         context.user_data['day'] = day
+        video_link_input[day] = 0  # Сбросим счетчик видео
         await update.message.reply_text(f"Сколько видео вы хотите добавить для дня {day}?")
     else:
         await update.message.reply_text("У вас нет доступа к этой функции.")
 
 async def save_video_link(update: Update, context: CallbackContext) -> None:
     user_message = update.message.text
+    user_id = update.message.from_user.id
+
+    # Если это ссылка на видео
     if user_message.startswith('http'):
         day = context.user_data.get('day')
         if day is not None:
+            # Проверяем, сколько видео нужно для дня
+            video_count = int(update.message.text)
             if day not in video_links_by_day:
                 video_links_by_day[day] = []
+            
+            # Добавляем ссылку
             video_links_by_day[day].append(user_message)
-            await update.message.reply_text(f"Ссылка на видео добавлена для дня {day}.")
+            video_link_input[day] += 1
+
+            # Проверяем, сколько еще ссылок нужно
+            if video_link_input[day] < video_count:
+                await update.message.reply_text(f"Добавьте ссылку на {video_link_input[day] + 1} видео.")
+            else:
+                await update.message.reply_text(f"Все {video_count} видео добавлены для дня {day}.")
+                # Сбросим текущие данные
+                context.user_data['day'] = None
+                video_link_input[day] = 0
         else:
             await update.message.reply_text("Ошибка: день не выбран.")
     else:
@@ -124,4 +141,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    
