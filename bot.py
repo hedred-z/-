@@ -1,4 +1,5 @@
 import logging
+import re
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
@@ -23,36 +24,43 @@ async def start(update: Update, context: CallbackContext) -> None:
     # Отправляем сообщение с клавиатурой
     await update.message.reply_text(welcome_text, reply_markup=reply_markup)
 
-async def get_course_day(day: int, context: CallbackContext) -> str:
+async def get_course_day(day: int, context: CallbackContext) -> list:
+    # Список для хранения всех ссылок на видео
+    video_links = []
+
     # Проходим по сообщениям канала и ищем, например, "День 1", "День 2" и т.д.
     async for message in context.bot.get_chat_messages(CHANNEL_ID):
         if f"День {day}:" in message.text:
-            # Находим ссылку в тексте, которая будет после "День X:"
-            start_index = message.text.find("http")
-            end_index = message.text.find(" ", start_index)
-            video_url = message.text[start_index:end_index] if end_index != -1 else message.text[start_index:]
-            return f"День {day}: Ссылка на видео: {video_url}"
+            # Ищем все ссылки в сообщении
+            links = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.text)
+            if links:
+                video_links.extend(links)
     
-    return f"Контент для дня {day} не найден."
+    return video_links
 
 async def learn_day(update: Update, context: CallbackContext) -> None:
-    # Получаем номер дня из текста сообщения (например, если 1-й день, то день=1)
-    day = 1
-    course_content = await get_course_day(day, context)
+    day = 1  # Вы можете изменить этот номер дня, например, на 2, 3 и т.д.
     
-    # Отправляем видео и сообщение
-    await update.message.reply_text(course_content)
+    # Получаем ссылки на видео для указанного дня
+    video_links = await get_course_day(day, context)
     
-    # Создаём новую клавиатуру с кнопкой "Я посмотрел" с зелёной галочкой
-    keyboard = [
-        ["✅ Я посмотрел"]
-    ]
-    
-    # Преобразуем в объект ReplyKeyboardMarkup
-    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-    
-    # Отправляем сообщение с новой кнопкой
-    await update.message.reply_text("Пожалуйста, подождите 3 минуты перед переходом к следующему видео...", reply_markup=reply_markup)
+    if video_links:
+        # Отправляем каждую ссылку по очереди
+        for link in video_links:
+            await update.message.reply_text(f"Ссылка на видео: {link}")
+        
+        # Создаем клавиатуру с кнопкой "Я посмотрел"
+        keyboard = [
+            ["✅ Я посмотрел"]
+        ]
+        
+        # Преобразуем в объект ReplyKeyboardMarkup
+        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+        
+        # Отправляем сообщение с новой кнопкой
+        await update.message.reply_text("Пожалуйста, подождите 3 минуты перед переходом к следующему видео...", reply_markup=reply_markup)
+    else:
+        await update.message.reply_text("Для выбранного дня не найдено видео.")
 
 async def watched(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text("Поздравляем! Вы завершили первый день обучения.")
