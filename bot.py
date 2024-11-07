@@ -60,7 +60,8 @@ async def learn_day(update: Update, context: CallbackContext) -> None:
         # Отправляем сообщение с новой кнопкой
         await update.message.reply_text("Пожалуйста, подождите 3 минуты перед переходом к следующему видео...", reply_markup=reply_markup)
     else:
-        await update.message.reply_text("Для выбранного дня не найдено видео.")
+        # Если контент не найден, отправляем сообщение
+        await update.message.reply_text("Мы не нашли видео для данного дня. Пожалуйста, изучите канал для получения новых материалов.")
 
 async def watched(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text("Поздравляем! Вы завершили первый день обучения.")
