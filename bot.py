@@ -1,6 +1,7 @@
+import asyncio
+import nest_asyncio  # Добавьте это для совместимости с активным циклом событий
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
-from datetime import datetime, timedelta
 import logging
 import pytz
 
@@ -124,6 +125,7 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    import asyncio
-    # Просто вызовем run_polling, без дополнительных оберток
-    asyncio.run(main())  # Запуск бота без необходимости создавать собственный цикл событий
+    # Используем nest_asyncio для исправления проблемы с циклом событий
+    import nest_asyncio
+    nest_asyncio.apply()  # Это позволяет повторно использовать текущий цикл событий
+    asyncio.get_event_loop().run_until_complete(main())  # Запускаем основной код бота
