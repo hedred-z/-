@@ -2,51 +2,50 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ConversationHandler
 import logging
 
-# Вставьте ваш токен
+# Insert your token
 TOKEN = '7510854780:AAHHsrY_dg09A569k94C1rYWsrgdBEBeApY'
 
-# Включаем логирование
+# Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Данные для курса
+# Course data
 course_data = {
     1: ["https://example.com/video1"],
     2: ["https://example.com/video2", "https://example.com/video3"],
-    # Дополнительные видео для каждого дня
 }
 
-# Данные пользователей
+# User data
 user_data = {}
 
-# Состояния
-SELECT_DAY, EDIT_VIDEOS = range(2)
+# States
+SELECT_DAY, ADD_VIDEOS, EDIT_VIDEOS = range(3)
 
-# ID администратора
-admin_id = 954053674  # Замените на ваш ID
+# Admin ID
+admin_id = 954053674
 
-# Начало курса
-async def start(update: Update, context):
+# Start course
+async def start(update, context):
     user_id = update.message.from_user.id
     user_data[user_id] = {'day': 1, 'videos_watched': 0}
-    await update.message.reply_text('Добро пожаловать в курс! Нажмите "Просмотрено ✅", чтобы начать.')
+    await update.message.reply_text('Welcome to the course! Press "Watched ✅" to start.')
     await send_video(update, user_id)
 
-# Отправка видео
+# Send video
 async def send_video(update, user_id):
     day = user_data[user_id]['day']
     videos = course_data.get(day, [])
     if videos:
         video_link = videos[user_data[user_id]['videos_watched']]
-        keyboard = [[InlineKeyboardButton("Просмотрено ✅", callback_data='watched')]]
+        keyboard = [[InlineKeyboardButton("Watched ✅", callback_data='watched')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(f"День {day}: Посмотрите видео по следующей ссылке: {video_link}", reply_markup=reply_markup)
+        await update.message.reply_text(f"Day {day}: Watch the video here: {video_link}", reply_markup=reply_markup)
     else:
-        await update.message.reply_text(f"Вы завершили обучение на {day} день!")
+        await update.message.reply_text(f"You've completed the course for day {day}!")
         await main_menu(update)
 
-# Кнопка "Просмотрено"
-async def button(update: Update, context):
+# Button "Watched"
+async def button(update, context):
     query = update.callback_query
     user_id = query.from_user.id
     await query.answer()
@@ -59,84 +58,95 @@ async def button(update: Update, context):
         else:
             user_data[user_id]['videos_watched'] = 0
             user_data[user_id]['day'] += 1
-            await query.edit_message_text(f"День {day} завершен! Перейдите в главное меню.")
+            await query.edit_message_text(f"Day {day} completed! Go to the main menu.")
             await main_menu(update)
 
-# Главное меню
+# Main menu
 async def main_menu(update):
-    keyboard = [[InlineKeyboardButton("Главное меню", callback_data='main_menu')]]
+    keyboard = [[InlineKeyboardButton("Main menu", callback_data='main_menu')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Вы завершили день! Перейдите в главное меню.", reply_markup=reply_markup)
+    await update.message.reply_text("Day completed! Go to the main menu.", reply_markup=reply_markup)
 
-# Админ-панель
-async def admin_panel(update: Update, context):
+# Admin panel
+async def admin_panel(update, context):
     if update.message.from_user.id == admin_id:
         keyboard = [
-            [InlineKeyboardButton("Добавить видео", callback_data='add_video')],
-            [InlineKeyboardButton("Изменить видео", callback_data='edit_video')]
+            [InlineKeyboardButton("Add video", callback_data='add_video')],
+            [InlineKeyboardButton("Edit video", callback_data='edit_video')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("Добро пожаловать в админ-панель!", reply_markup=reply_markup)
+        await update.message.reply_text("Welcome to the admin panel!", reply_markup=reply_markup)
     else:
-        await update.message.reply_text("Вы не администратор!")
+        await update.message.reply_text("You are not an admin!")
 
-# Редактирование видео
-async def edit_video(update: Update, context):
+# Add video
+async def add_video(update, context):
+    if update.message.from_user.id == admin_id:
+        day = int(context.args[0])
+        video_count = int(context.args[1])
+        for i in range(video_count):
+            video_link = context.args[i + 2]
+            if day not in course_data:
+                course_data[day] = []
+            course_data[day].append(video_link)
+        await update.message.reply_text(f"Videos added for day {day}.")
+    else:
+        await update.message.reply_text("You are not an admin!")
+
+# Edit video
+async def edit_video(update, context):
     if update.message.from_user.id == admin_id:
         keyboard = []
         for day in range(1, 46):
-            keyboard.append([InlineKeyboardButton(f"День {day}", callback_data=f"edit_{day}")])
+            keyboard.append([InlineKeyboardButton(f"Day {day}", callback_data=f"edit_{day}")])
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("Выберите день для редактирования:", reply_markup=reply_markup)
+        await update.message.reply_text("Choose a day to edit:", reply_markup=reply_markup)
     else:
-        await update.message.reply_text("Вы не администратор!")
+        await update.message.reply_text("You are not an admin!")
 
-# Изменение видео для дня
-async def edit_day_video(update: Update, context):
-    query = update.callback_query
-    user_id = query.from_user.id
-    if user_id == admin_id:
-        day = int(query.data.split('_')[1])
+# Edit day video
+async def edit_day_video(update, context):
+    if update.message.from_user.id == admin_id:
+        day = int(update.callback_query.data.split('_')[1])
         videos = course_data.get(day, [])
-        await query.edit_message_text(f"Текущие видео для дня {day}: {', '.join(videos)}. Введите новые ссылки через пробел.")
-        context.user_data['day_to_edit'] = day  # Сохранение дня для редактирования
+        await update.callback_query.edit_message_text(f"Current videos for day {day}: {', '.join(videos)}. Enter new links separated by spaces.")
         return EDIT_VIDEOS
     else:
-        await query.answer("Вы не администратор!")
-        return ConversationHandler.END
+        await update.message.reply_text("You are not an admin!")
 
-# Обработка новых ссылок для видео
-async def handle_new_video_links(update: Update, context):
+# Handle new video links
+async def handle_new_video_links(update, context):
     if update.message.from_user.id == admin_id:
-        day = context.user_data['day_to_edit']
+        day = int(update.callback_query.data.split('_')[1])
         new_links = update.message.text.split()
         course_data[day] = new_links
-        await update.message.reply_text(f"Видео для дня {day} были изменены.")
+        await update.message.reply_text(f"Videos for day {day} have been updated.")
         return ConversationHandler.END
     else:
-        await update.message.reply_text("Вы не администратор!")
-        return ConversationHandler.END
+        await update.message.reply_text("You are not an admin!")
 
-# Основные команды
+# Main function
 async def main():
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("admin", admin_panel))
+    application.add_handler(MessageHandler(filters.TEXT, add_video))
 
-    # Диалог для изменения видео
+    # Dialog for editing videos
     conversation_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(edit_day_video, pattern='^edit_')],
+        entry_points=[CallbackQueryHandler(edit_day_video, pattern='^edit_', per_message=True)],
         states={
-            EDIT_VIDEOS: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_new_video_links)],
+            EDIT_VIDEOS: [MessageHandler(filters.TEXT, handle_new_video_links)],
         },
         fallbacks=[],
     )
     application.add_handler(conversation_handler)
 
-    # Запуск бота
-    await application.start_polling()
+    # Start polling
+    await application.run_polling()
 
 if __name__ == '__main__':
     import asyncio
     asyncio.run(main())
+    
