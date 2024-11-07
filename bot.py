@@ -28,8 +28,7 @@ async def start(update: Update, context):
     welcome_message = "Здравствуйте, рады, что вы хотите изучать криптовалюту с нами."
 
     # День 1 доступен сразу
-    if len(course_data[1]) > 0:
-        await update.message.reply_text(f"День 1: Введение в криптовалюты\nСсылка на видео: {course_data[1][0]}")
+    await update.message.reply_text(f"День 1: Введение в криптовалюты\nСсылка на видео: {course_data[1][0]}")
 
     # Кнопка "Просмотрено"
     keyboard = [['Просмотрено ✅']]
@@ -115,8 +114,9 @@ async def main():
     application.add_handler(admin_conversation)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mark_as_viewed))
 
+    # Запуск бота
     await application.run_polling()
 
 if __name__ == '__main__':
     import asyncio
-    asyncio.run(main())
+    asyncio.run(main())  # Убедитесь, что используется этот подход для запуска
