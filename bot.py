@@ -104,7 +104,7 @@ async def save_links(update: Update, context: CallbackContext):
         await update.message.reply_text("Вы не являетесь администратором.")
         return START
 
-async def main():
+def main():
     application = Application.builder().token(API_TOKEN).build()
     application.add_handler(CommandHandler('start', start))
     application.add_handler(MessageHandler(filters.Regex('^День \\d+$'), day_progress))
@@ -113,8 +113,7 @@ async def main():
     application.add_handler(MessageHandler(filters.Regex('^Добавить ссылки для дня$'), add_links))
     application.add_handler(MessageHandler(filters.Regex('^Редактировать ссылки$'), add_links))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, save_links))
-    await application.run_polling()
+    application.run_polling()
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    main()
