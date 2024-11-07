@@ -1,5 +1,5 @@
 import asyncio
-import nest_asyncio  # Добавьте это для совместимости с активным циклом событий
+import nest_asyncio  # Для совместимости с активным циклом событий
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
 import logging
@@ -22,6 +22,7 @@ course_data = {day: [] for day in range(1, 46)}  # 45 дней, список в�
 # Московский часовой пояс
 moscow_tz = pytz.timezone('Europe/Moscow')
 
+# Стартовое сообщение
 async def start(update: Update, context):
     user_id = update.message.from_user.id
 
@@ -39,6 +40,7 @@ async def start(update: Update, context):
     user_data[user_id] = {'day': 1, 'videos_watched': 0}
     return SELECT_DAY
 
+# Отметить видео как просмотренное
 async def mark_as_viewed(update: Update, context):
     user_id = update.message.from_user.id
 
@@ -62,6 +64,7 @@ async def mark_as_viewed(update: Update, context):
 
     return ConversationHandler.END
 
+# Админ панель
 async def admin_panel(update: Update, context):
     user_id = update.message.from_user.id
 
@@ -75,6 +78,7 @@ async def admin_panel(update: Update, context):
     await update.message.reply_text("Выберите день для добавления видео:", reply_markup=reply_markup)
     return ADD_VIDEOS
 
+# Добавить видео
 async def add_videos(update: Update, context):
     user_id = update.message.from_user.id
 
@@ -85,24 +89,19 @@ async def add_videos(update: Update, context):
     await update.message.reply_text(f"Вы выбрали день {day_number}. Сколько видео вы хотите добавить?")
     return ADD_VIDEOS
 
+# Хранение ссылок на видео
 async def store_video_links(update: Update, context):
     user_id = update.message.from_user.id
     day_number = int(update.message.text.split()[1])  # Получаем номер дня
 
-    # Получаем количество видео
-    num_videos = int(update.message.text)
-
     # Спрашиваем у администратора ссылки на видео
-    video_links = []
-    for i in range(num_videos):  # Запрашиваем ссылки на видео
-        await update.message.reply_text(f"Введите ссылку на видео {i+1}:")
-        
-        # Ожидаем следующего сообщения с ссылкой
-        video_link = (await update.message.reply_text()).text
-        video_links.append(video_link)
+    await update.message.reply_text("Введите ссылку на видео:")
 
-    course_data[day_number] = video_links  # Сохраняем ссылки для дня
-    await update.message.reply_text(f"Видео для дня {day_number} добавлены.")
+    # Ожидаем следующего сообщения с ссылкой
+    video_link = update.message.text
+    course_data[day_number].append(video_link)
+
+    await update.message.reply_text(f"Видео для дня {day_number} добавлено.")
     return ConversationHandler.END
 
 async def main():
@@ -126,6 +125,5 @@ async def main():
 
 if __name__ == '__main__':
     # Используем nest_asyncio для исправления проблемы с циклом событий
-    import nest_asyncio
     nest_asyncio.apply()  # Это позволяет повторно использовать текущий цикл событий
     asyncio.get_event_loop().run_until_complete(main())  # Запускаем основной код бота
