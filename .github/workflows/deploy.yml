@@ -1,18 +1,19 @@
-name: Python application
+name: Telegram Bot CI
 
 on:
   push:
-    branches: 
+    branches:
       - main
   pull_request:
-    branches: 
+    branches:
       - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v2
 
     - name: Set up Python
@@ -22,8 +23,9 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
-        pip install pytz  # Установите pytz
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt  # Убедитесь, что у вас есть файл requirements.txt с зависимостями
+        pip install nest_asyncio  # Установка nest_asyncio
 
     - name: Run bot
       run: python bot.py
