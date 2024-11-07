@@ -1,8 +1,5 @@
-import logging
-from datetime import datetime, timedelta
-from telegram import Update, ReplyKeyboardMarkup, ParseMode
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
-import json
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.constants import ParseMode
 
 API_TOKEN = '7230758782:AAHUvUhpfD4k2XfFInXY7blg686IZ6OLSD8'
 
