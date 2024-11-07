@@ -88,10 +88,13 @@ async def edit_day(update: Update, context: CallbackContext) -> None:
 
 async def set_video_count(update: Update, context: CallbackContext) -> None:
     if update.message.from_user.id == admin_id:
-        day = int(update.message.text.split()[1])
-        video_count = int(update.message.text.split()[2])
-        days_content[day]["videos"] = video_count
-        await update.message.reply_text(f"Для Дня {day} установлено {video_count} видео.")
+        try:
+            day = int(update.message.text.split()[1])
+            video_count = int(update.message.text.split()[2])
+            days_content[day]["videos"] = video_count
+            await update.message.reply_text(f"Для Дня {day} установлено {video_count} видео.")
+        except IndexError:
+            await update.message.reply_text("Пожалуйста, укажите номер дня и количество видео в формате: день <номер> <количество видео>.")
 
 async def get_rating(update: Update, context: CallbackContext) -> None:
     sorted_users = sorted(users.items(), key=lambda x: x[1]["completed_days"], reverse=True)
@@ -111,10 +114,9 @@ async def main():
     application.add_handler(CallbackQueryHandler(handle_done, pattern="Готово"))
     application.add_handler(CallbackQueryHandler(handle_complete_day, pattern="Завершить день"))
     application.add_handler(CallbackQueryHandler(edit_day, pattern="Редактировать"))
-    application.add_handler(MessageHandler(filters.TEXT, set_video_count))
+    application.add_handler(MessageHandler(filters.TEXT & filters.regex(r'^\d+ \d+$'), set_video_count))
 
     await application.run_polling()
 
 if __name__ == '__main__':
     asyncio.run(main())
-    
