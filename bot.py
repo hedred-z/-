@@ -4,7 +4,7 @@ from telegram import Update, ReplyKeyboardMarkup, ParseMode
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 import json
 
-API_TOKEN = '7510854780:AAFLKxbZ2rQsq10DcQ9uTNg2dvU2PimWtH'
+API_TOKEN = '7230758782:AAHUvUhpfD4k2XfFInXY7blg686IZ6OLSD8'
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -150,4 +150,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
+  
