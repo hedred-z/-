@@ -46,7 +46,8 @@ async def admin_panel(update: Update, context: CallbackContext) -> None:
 
 async def add_video_links(update: Update, context: CallbackContext) -> None:
     # Логика добавления ссылок на видео для админа
-    # ...
+    # Пока функция оставлена пустой. Можно реализовать логику при необходимости.
+    pass
 
 async def start_day(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
@@ -103,4 +104,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    
