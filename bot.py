@@ -1,7 +1,11 @@
+import nest_asyncio
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ConversationHandler
 import logging
-import asyncio
+
+# Применяем nest_asyncio
+nest_asyncio.apply()
 
 TOKEN = '7510854780:AAHHsrY_dg09A569k94C1rYWsrgdBEBeApY'
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -129,4 +133,4 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()  # Исправлено с asyncio.run(main())
