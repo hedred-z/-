@@ -88,10 +88,16 @@ async def store_video_links(update: Update, context):
     user_id = update.message.from_user.id
     day_number = int(update.message.text.split()[1])  # Получаем номер дня
 
+    # Получаем количество видео
+    num_videos = int(update.message.text)
+
+    # Спрашиваем у администратора ссылки на видео
     video_links = []
-    for i in range(int(update.message.text)):  # Запрашиваем ссылки на видео
+    for i in range(num_videos):  # Запрашиваем ссылки на видео
         await update.message.reply_text(f"Введите ссылку на видео {i+1}:")
-        video_link = update.message.text  # Сохранить ссылку
+        
+        # Ожидаем следующего сообщения с ссылкой
+        video_link = (await update.message.reply_text()).text
         video_links.append(video_link)
 
     course_data[day_number] = video_links  # Сохраняем ссылки для дня
