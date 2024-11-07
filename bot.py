@@ -31,7 +31,7 @@ def get_keyboard(user_id):
 async def start(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     await update.message.reply_text(
-        "Добро пожаловать! Нажмите кнопку 'Начать день', чтобы приступить к изучению.",
+        "Добро пожаловать! Нажмите кнопку 'День 1', чтобы приступить к изучению.",
         reply_markup=get_keyboard(user_id)
     )
 
@@ -45,14 +45,11 @@ async def admin_panel(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("У вас нет доступа к этой функции.")
 
 async def ask_video_count(update: Update, context: CallbackContext) -> None:
+    # Сохраняем выбранный день в контексте
     day = int(update.message.text)
-    if update.message.from_user.id == ADMIN_ID:
-        # Спросим количество видео для выбранного дня
-        context.user_data['day'] = day
-        video_link_input[day] = 0  # Сбросим счетчик видео
-        await update.message.reply_text(f"Сколько видео вы хотите добавить для дня {day}?")
-    else:
-        await update.message.reply_text("У вас нет доступа к этой функции.")
+    context.user_data['day'] = day
+    video_link_input[day] = 0  # Сбросим счетчик видео
+    await update.message.reply_text(f"Сколько видео вы хотите добавить для дня {day}?")
 
 async def save_video_link(update: Update, context: CallbackContext) -> None:
     user_message = update.message.text
@@ -63,7 +60,7 @@ async def save_video_link(update: Update, context: CallbackContext) -> None:
         day = context.user_data.get('day')
         if day is not None:
             # Проверяем, сколько видео нужно для дня
-            video_count = int(update.message.text)
+            video_count = context.user_data.get('video_count', 0)
             if day not in video_links_by_day:
                 video_links_by_day[day] = []
             
@@ -79,6 +76,7 @@ async def save_video_link(update: Update, context: CallbackContext) -> None:
                 # Сбросим текущие данные
                 context.user_data['day'] = None
                 video_link_input[day] = 0
+                context.user_data['video_count'] = None  # Сбросим количество видео
         else:
             await update.message.reply_text("Ошибка: день не выбран.")
     else:
@@ -131,7 +129,7 @@ def main() -> None:
     # Обработчики команд
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.Regex("Админ-панель"), admin_panel))
-    application.add_handler(MessageHandler(filters.Regex(r"^\d+$"), ask_video_count))
+    application.add_handler(MessageHandler(filters.Regex(r"^\d+$"), ask_video_count))  # Выбор дня
     application.add_handler(MessageHandler(filters.Regex(r'http'), save_video_link))  # Проверка на ссылку
     application.add_handler(MessageHandler(filters.Regex("День 1"), start_day))
     application.add_handler(MessageHandler(filters.Regex("✅ Я посмотрел"), watched))
@@ -141,3 +139,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    
