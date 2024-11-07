@@ -1,4 +1,4 @@
-name: Telegram Bot CI
+name: Python Bot Workflow
 
 on:
   push:
@@ -13,19 +13,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.8'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt  # Убедитесь, что у вас есть файл requirements.txt с зависимостями
-        pip install nest_asyncio  # Установка nest_asyncio
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Run bot
-      run: python bot.py
+      - name: Run bot
+        run: python bot.py
