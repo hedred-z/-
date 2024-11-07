@@ -1,37 +1,27 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ConversationHandler
 import logging
+import asyncio
 
-# Insert your token
 TOKEN = '7510854780:AAHHsrY_dg09A569k94C1rYWsrgdBEBeApY'
-
-# Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Course data
 course_data = {
     1: ["https://example.com/video1"],
     2: ["https://example.com/video2", "https://example.com/video3"],
 }
 
-# User data
 user_data = {}
-
-# States
 SELECT_DAY, ADD_VIDEOS, EDIT_VIDEOS = range(3)
-
-# Admin ID
 admin_id = 954053674
 
-# Start course
 async def start(update, context):
     user_id = update.message.from_user.id
     user_data[user_id] = {'day': 1, 'videos_watched': 0}
     await update.message.reply_text('Welcome to the course! Press "Watched ✅" to start.')
     await send_video(update, user_id)
 
-# Send video
 async def send_video(update, user_id):
     day = user_data[user_id]['day']
     videos = course_data.get(day, [])
@@ -44,7 +34,6 @@ async def send_video(update, user_id):
         await update.message.reply_text(f"You've completed the course for day {day}!")
         await main_menu(update)
 
-# Button "Watched"
 async def button(update, context):
     query = update.callback_query
     user_id = query.from_user.id
@@ -61,13 +50,11 @@ async def button(update, context):
             await query.edit_message_text(f"Day {day} completed! Go to the main menu.")
             await main_menu(update)
 
-# Main menu
 async def main_menu(update):
     keyboard = [[InlineKeyboardButton("Main menu", callback_data='main_menu')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Day completed! Go to the main menu.", reply_markup=reply_markup)
 
-# Admin panel
 async def admin_panel(update, context):
     if update.message.from_user.id == admin_id:
         keyboard = [
@@ -79,7 +66,6 @@ async def admin_panel(update, context):
     else:
         await update.message.reply_text("You are not an admin!")
 
-# Add video
 async def add_video(update, context):
     if update.message.from_user.id == admin_id:
         day = int(context.args[0])
@@ -93,7 +79,6 @@ async def add_video(update, context):
     else:
         await update.message.reply_text("You are not an admin!")
 
-# Edit video
 async def edit_video(update, context):
     if update.message.from_user.id == admin_id:
         keyboard = []
@@ -104,7 +89,6 @@ async def edit_video(update, context):
     else:
         await update.message.reply_text("You are not an admin!")
 
-# Edit day video
 async def edit_day_video(update, context):
     if update.message.from_user.id == admin_id:
         day = int(update.callback_query.data.split('_')[1])
@@ -114,7 +98,6 @@ async def edit_day_video(update, context):
     else:
         await update.message.reply_text("You are not an admin!")
 
-# Handle new video links
 async def handle_new_video_links(update, context):
     if update.message.from_user.id == admin_id:
         day = int(update.callback_query.data.split('_')[1])
@@ -125,17 +108,17 @@ async def handle_new_video_links(update, context):
     else:
         await update.message.reply_text("You are not an admin!")
 
-# Main function
 async def main():
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("admin", admin_panel))
     application.add_handler(MessageHandler(filters.TEXT, add_video))
+    application.add_handler(CallbackQueryHandler(button, pattern='^watched$'))
+    application.add_handler(CallbackQueryHandler(edit_day_video, pattern='^edit_'))
 
-    # Dialog for editing videos
     conversation_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(edit_day_video, pattern='^edit_', per_message=True)],
+        entry_points=[CallbackQueryHandler(edit_day_video, pattern='^edit_')],
         states={
             EDIT_VIDEOS: [MessageHandler(filters.TEXT, handle_new_video_links)],
         },
@@ -143,10 +126,8 @@ async def main():
     )
     application.add_handler(conversation_handler)
 
-    # Start polling
     await application.run_polling()
 
 if __name__ == '__main__':
-    import asyncio
     asyncio.run(main())
     
