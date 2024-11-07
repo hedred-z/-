@@ -1,132 +1,121 @@
-import asyncio
-import nest_asyncio  # Для совместимости с активным циклом событий
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
 import logging
-import pytz
+
+# Вставьте ваш токен
+TOKEN = '7510854780:AAHHsrY_dg09A569k94C1rYWsrgdBEBeApY'
 
 # Включаем логирование
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Статусы
-SELECT_DAY, ADD_VIDEOS = range(2)
+# Данные для курса
+course_data = {
+    1: ["https://example.com/video1"],
+    2: ["https://example.com/video2", "https://example.com/video3"],
+    # Дополнительные видео для каждого дня
+}
 
 # Данные пользователей
 user_data = {}
 
-# Для хранения информации о днях и видео
-course_data = {day: [] for day in range(1, 46)}  # 45 дней, список видео для каждого дня
+# Состояния
+SELECT_DAY, ADD_VIDEOS = range(2)
 
-# Московский часовой пояс
-moscow_tz = pytz.timezone('Europe/Moscow')
+# ID администратора
+admin_id = 954053674  # Заменено на ваш ID
 
-# Стартовое сообщение
-async def start(update: Update, context):
+# Начало курса
+def start(update, context):
     user_id = update.message.from_user.id
-    logger.info(f"User {user_id} has started the bot.")  # Логируем информацию о старте
-
-    # Приветственное сообщение
-    welcome_message = "Здравствуйте, рады, что вы хотите изучать криптовалюту с нами."
-
-    # День 1 доступен сразу
-    if not course_data[1]:
-        course_data[1].append("https://example.com/video1")  # Пример ссылки на видео
-
-    await update.message.reply_text(f"День 1: Введение в криптовалюты\nСсылка на видео: {course_data[1][0]}")
-
-    # Кнопка "Просмотрено"
-    keyboard = [['Просмотрено ✅']]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Просмотрите видео и нажмите 'Просмотрено', чтобы продолжить.", reply_markup=reply_markup)
-
     user_data[user_id] = {'day': 1, 'videos_watched': 0}
-    return SELECT_DAY
+    update.message.reply_text('Добро пожаловать в курс! Нажмите "Просмотрено ✅", чтобы начать.')
+    send_video(update, user_id)
 
-# Отметить видео как просмотренное
-async def mark_as_viewed(update: Update, context):
-    user_id = update.message.from_user.id
-    logger.info(f"User {user_id} marked video as viewed.")  # Логируем
+# Отправка видео
+def send_video(update, user_id):
+    day = user_data[user_id]['day']
+    videos = course_data.get(day, [])
+    if videos:
+        video_link = videos[user_data[user_id]['videos_watched']]
+        keyboard = [[InlineKeyboardButton("Просмотрено ✅", callback_data='watched')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text(f"День {day}: Посмотрите видео по следующей ссылке: {video_link}", reply_markup=reply_markup)
+    else:
+        update.message.reply_text(f"Вы завершили обучение на {day} день!")
+        main_menu(update)
 
-    if user_id not in user_data:
-        logger.warning(f"User {user_id} not in user_data.")  # Логируем проблему
-        return SELECT_DAY
+# Кнопка "Просмотрено"
+def button(update, context):
+    query = update.callback_query
+    user_id = query.from_user.id
+    query.answer()
+    if query.data == 'watched':
+        user_data[user_id]['videos_watched'] += 1
+        day = user_data[user_id]['day']
+        videos = course_data.get(day, [])
+        if user_data[user_id]['videos_watched'] < len(videos):
+            send_video(update, user_id)
+        else:
+            user_data[user_id]['videos_watched'] = 0
+            user_data[user_id]['day'] += 1
+            update.callback_query.edit_message_text(f"День {day} завершен! Перейдите в главное меню.")
+            main_menu(update)
 
-    # Проверка, что видео еще не было просмотрено
-    user_data[user_id]['videos_watched'] += 1
+# Главное меню
+def main_menu(update):
+    keyboard = [[InlineKeyboardButton("Главное меню", callback_data='main_menu')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text("Вы завершили день! Перейдите в главное меню.", reply_markup=reply_markup)
 
-    # Если видео просмотрено, отправляем следующее
-    if user_data[user_id]['videos_watched'] < len(course_data[1]):
-        video_link = course_data[1][user_data[user_id]['videos_watched']]
-        await update.message.reply_text(f"Ссылка на следующее видео: {video_link}")
-        return SELECT_DAY
+# Админ-панель
+def admin_panel(update, context):
+    if update.message.from_user.id == admin_id:
+        keyboard = [[InlineKeyboardButton("Добавить видео", callback_data='add_video')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text("Добро пожаловать в админ-панель!", reply_markup=reply_markup)
+    else:
+        update.message.reply_text("Вы не администратор!")
 
-    # Все видео просмотрены, завершаем день
-    await update.message.reply_text(f"Поздравляем, вы изучили 1/45 дней! Продолжайте в том же духе.")
-    keyboard = [['Главное меню']]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Завершили день. Нажмите 'Главное меню' для продолжения.", reply_markup=reply_markup)
+# Добавление видео
+def add_video(update, context):
+    if update.message.from_user.id == admin_id:
+        day = int(context.args[0])
+        video_count = int(context.args[1])
+        for i in range(video_count):
+            video_link = context.args[i + 2]
+            if day not in course_data:
+                course_data[day] = []
+            course_data[day].append(video_link)
+        update.message.reply_text(f"Добавлены видео для дня {day}.")
+    else:
+        update.message.reply_text("Вы не администратор!")
 
-    return ConversationHandler.END
+# Основные команды
+def main():
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
 
-# Админ панель
-async def admin_panel(update: Update, context):
-    user_id = update.message.from_user.id
-    if user_id != 954053674:  # ID администратора
-        await update.message.reply_text("У вас нет доступа к админ панели.")
-        return SELECT_DAY
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("admin", admin_panel))
+    dp.add_handler(MessageHandler(Filters.text, add_video))
 
-    # Администраторская панель
-    keyboard = [[f"День {i}" for i in range(1, 46)]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("Выберите день для добавления видео:", reply_markup=reply_markup)
-    return ADD_VIDEOS
-
-# Добавить видео
-async def add_videos(update: Update, context):
-    user_id = update.message.from_user.id
-    if user_id != 954053674:  # ID администратора
-        return SELECT_DAY
-
-    day_number = int(update.message.text.split()[1])  # Получаем номер дня
-    await update.message.reply_text(f"Вы выбрали день {day_number}. Сколько видео вы хотите добавить?")
-    return ADD_VIDEOS
-
-# Хранение ссылок на видео
-async def store_video_links(update: Update, context):
-    user_id = update.message.from_user.id
-    day_number = int(update.message.text.split()[1])  # Получаем номер дня
-
-    # Спрашиваем у администратора ссылки на видео
-    await update.message.reply_text("Введите ссылку на видео:")
-
-    # Ожидаем следующего сообщения с ссылкой
-    video_link = update.message.text
-    course_data[day_number].append(video_link)
-
-    await update.message.reply_text(f"Видео для дня {day_number} добавлено.")
-    return ConversationHandler.END
-
-async def main():
-    application = Application.builder().token("7510854780:AAHHsrY_dg09A569k94C1rYWsrgdBEBeApY").build()
-
-    # Конверсии для администратора
-    admin_conversation = ConversationHandler(
-        entry_points=[CommandHandler('admin', admin_panel)],
+    # Конверсация для выбора дня и добавления видео
+    conversation_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
         states={
-            ADD_VIDEOS: [MessageHandler(filters.TEXT & ~filters.COMMAND, store_video_links)],
+            SELECT_DAY: [CallbackQueryHandler(main_menu)],
+            ADD_VIDEOS: [MessageHandler(Filters.text, add_video)],
         },
-        fallbacks=[]
+        fallbacks=[],
     )
-
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(admin_conversation)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mark_as_viewed))
+    dp.add_handler(conversation_handler)
 
     # Запуск бота
-    await application.run_polling()
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == '__main__':
-    # Используем nest_asyncio для исправления проблемы с циклом событий
-    nest_asyncio.apply()  # Это позволяет повторно использовать текущий цикл событий
-    asyncio.get_event_loop().run_until_complete(main())  # Запускаем основной код бота
+    main()
+    
