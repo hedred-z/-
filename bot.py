@@ -21,9 +21,10 @@ def get_keyboard(user_id):
             if day in video_links_by_day:
                 button_text += " ✅"
             days_keyboard.append([KeyboardButton(button_text)])
+        days_keyboard.append([KeyboardButton("Админ-панель")])
         reply_markup = ReplyKeyboardMarkup(days_keyboard, resize_keyboard=True)
     else:
-        day_buttons = [[f"День {i}"] for i in range(1, len(user_progress) + 2)]
+        day_buttons = [[KeyboardButton(f"День {i}") for i in range(1, len(user_progress) + 2)]]
         reply_markup = ReplyKeyboardMarkup(day_buttons, resize_keyboard=True)
     return reply_markup
 
@@ -36,7 +37,8 @@ async def start(update: Update, context: CallbackContext) -> None:
 
 async def admin_panel(update: Update, context: CallbackContext) -> None:
     if update.message.from_user.id == ADMIN_ID:
-        days_keyboard = [[str(day)] for day in range(1, 46)]
+        days_keyboard = [[KeyboardButton(f"День {day}") for day in range(1, 46)]]
+        days_keyboard.append([KeyboardButton("Админ-панель")])
         reply_markup = ReplyKeyboardMarkup(days_keyboard, one_time_keyboard=True, resize_keyboard=True)
         await update.message.reply_text("Выберите день для добавления видео:", reply_markup=reply_markup)
     else:
@@ -45,14 +47,19 @@ async def admin_panel(update: Update, context: CallbackContext) -> None:
 async def ask_video_count(update: Update, context: CallbackContext) -> None:
     day = int(update.message.text.split()[1])
     context.user_data['day'] = day
-    video_link_input[day] = 0
     await update.message.reply_text(f"Сколько видео вы хотите добавить для дня {day}?")
 
 async def save_video_link(update: Update, context: CallbackContext) -> None:
     user_message = update.message.text
     user_id = update.message.from_user.id
 
-    if user_message.startswith('http'):
+    if user_message.isdigit() and int(user_message) > 0:
+        video_count = int(user_message)
+        day = context.user_data.get('day')
+        context.user_data['video_count'] = video_count
+        video_link_input[day] = 0
+        await update.message.reply_text(f"Вы выбрали {video_count} видео для дня {day}. Пожалуйста, отправьте ссылки.")
+    elif user_message.startswith('http'):
         day = context.user_data.get('day')
         if day is not None:
             video_count = context.user_data.get('video_count', 0)
@@ -128,3 +135,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    
